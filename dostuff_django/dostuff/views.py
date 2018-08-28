@@ -13,7 +13,7 @@ import datetime
 import json
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-
+from django.forms.models import model_to_dict
 
 @csrf_exempt
 def not_logged_in(request):
@@ -60,6 +60,9 @@ def logout_view(request):
 # SEND BACK USER EVENTS AND CATEGORIES IF LOGGED IN
 def events_list(request):
 	events = Event.objects.all()
+	for i in range(0, len(events)):
+		print(model_to_dict(events[i]))
+
 	categories = Category.objects.all()
 
 	# Need to find user's location for intial event search
@@ -74,20 +77,37 @@ def events_list(request):
 
 	in_database = False
 
+	# for every event we got from yelp
 	for i in range(0, len(response_json['events'])):
+
+		print("latitude", response_json['events'][i]['latitude'])
+		print("longitude", response_json['events'][i]['longitude'])
+		print("---------")
+
+		# for every event in the database
 		for j in range(0, len(events)):
+
+			# if the URLs match
 			if events[j].url == response_json['events'][i]['event_site_url']:
+				# this event is in database
 				in_database = True
 
+		# if this event from response is not in database
 		if in_database == False:
-			#add event to database
+
+			#add event to database:
+
+			#set time according to yelp response:
 			date_str, time_str = response_json['events'][i]['time_start'].split(' ')
 			year, month, day = date_str.split('-')
 
+			# make a dd/mm/yyy formatted string according to time from response json
 			s = '{}/{}/{}'.format(day, month, year)
 
+			# get unix time from that
 			unix_time = time.mktime(datetime.datetime.strptime(s, "%d/%m/%Y").timetuple())
 
+			# create event instance from Model
 			e = Event(
 				name=response_json['events'][i]['name'], 
 				date=unix_time, time=time_str, 
@@ -97,9 +117,12 @@ def events_list(request):
 				image_url=response_json['events'][i]['image_url'],
 				address=response_json['events'][i]['location']['address1'],
 				city=response_json['events'][i]['location']['city'],
-				state=response_json['events'][i]['location']['state']
+				state=response_json['events'][i]['location']['state'],
+				latitude=response_json['events'][i]['latitude'],
+				longitude=response_json['events'][i]['longitude'],
 			)
 
+			# save it
 			e.save()
 
 			for k in range(0, len(categories)):
